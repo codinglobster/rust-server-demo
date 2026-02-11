@@ -1,0 +1,45 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Compiled files
+*.o
+*.so
+*.dylib
+*.dll
+
+# Test coverage
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Profiling
+flamegraph.svg
+perf.data
+perf.data.old
+
+# Temporary files
+tmp/
+temp/

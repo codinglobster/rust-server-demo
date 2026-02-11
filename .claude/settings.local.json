@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)",
+      "Bash(/Users/liuxiao/playground/rust-server-demo/src/lib.rs << 'EOF'\n//! Rust Server Demo - A real-time/long-connection server\n//!\n//! This server provides:\n//! - RESTful API with Axum\n//! - WebSocket support for real-time communication\n//! - PostgreSQL for persistent storage\n//! - Redis for caching and session management\n//! - Kafka for message queuing\n//! - JWT authentication\n\npub mod cache;\npub mod core;\npub mod database;\n#[cfg\\(feature = \"kafka\"\\)]\npub mod messaging;\npub mod models;\npub mod services;\npub mod handlers;\npub mod routes;\npub mod websocket;\npub mod auth;\npub mod utils;\nEOF)",
+      "Bash(grep:*)"
+    ]
+  }
+}
