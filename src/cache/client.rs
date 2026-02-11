@@ -224,7 +224,7 @@ impl RedisClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::cache::keys::CacheKeys;
 
     #[test]
     fn test_cache_keys() {

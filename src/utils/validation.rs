@@ -118,6 +118,7 @@ pub fn is_sql_injection(input: &str) -> bool {
         "--", ";--", "/*", "*/", "xp_", "exec(", "execute(", "cast(", "varchar",
         "nvarchar(", "char(", "nchar(", "ascii(", "substring(", "waitfor delay",
         "union select", "drop table", "delete from", "insert into", "update",
+        "' or '", " or '1'='1", "1' or '1'='1",
     ];
 
     let lower = input.to_lowercase();

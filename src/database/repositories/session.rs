@@ -194,8 +194,6 @@ impl SessionRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_session_repository_creation() {
         // This is a placeholder test
