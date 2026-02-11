@@ -70,12 +70,12 @@ impl UserService {
     /// Register a new user
     pub async fn register(&self, request: &RegisterRequest, password_hash: &str) -> AppResult<UserDto> {
         // Check if username already exists
-        if let Some(_) = self.repository.find_by_username(&request.username).await? {
+        if self.repository.find_by_username(&request.username).await?.is_some() {
             return Err(AppError::Conflict("Username already exists".to_string()));
         }
 
         // Check if email already exists
-        if let Some(_) = self.repository.find_by_email(&request.email).await? {
+        if self.repository.find_by_email(&request.email).await?.is_some() {
             return Err(AppError::Conflict("Email already exists".to_string()));
         }
 
@@ -112,10 +112,11 @@ impl UserService {
     /// Update user role
     pub async fn update_role(&self, id: Uuid, role: &str) -> AppResult<UserDto> {
         // Validate role
-        UserRole::from_str(role)
-            .ok_or_else(|| AppError::Validation(crate::core::error::ValidationError::InvalidInput(
+        role.parse::<UserRole>().map_err(|_| {
+            AppError::Validation(crate::core::error::ValidationError::InvalidInput(
                 "Invalid role".to_string(),
-            )))?;
+            ))
+        })?;
 
         let user = self.repository.update_role(id, role).await?;
         let user_dto = UserDto::from(user.clone());

@@ -196,8 +196,6 @@ impl SessionRepository {
 mod tests {
     #[test]
     fn test_session_repository_creation() {
-        // This is a placeholder test
-        // Real tests would require a test database
-        assert!(true);
+        // Placeholder test; real tests would require a test database
     }
 }

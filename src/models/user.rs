@@ -108,22 +108,26 @@ impl UserRole {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "user" => Some(UserRole::User),
-            "moderator" => Some(UserRole::Moderator),
-            "admin" => Some(UserRole::Admin),
-            _ => None,
-        }
-    }
-
     pub fn has_higher_or_equal_privilege(&self, other: &UserRole) -> bool {
-        match (self, other) {
-            (UserRole::Admin, _) => true,
-            (UserRole::Moderator, UserRole::User) => true,
-            (UserRole::Moderator, UserRole::Moderator) => true,
-            (UserRole::User, UserRole::User) => true,
-            _ => false,
+        matches!(
+            (self, other),
+            (UserRole::Admin, _)
+                | (UserRole::Moderator, UserRole::User)
+                | (UserRole::Moderator, UserRole::Moderator)
+                | (UserRole::User, UserRole::User)
+        )
+    }
+}
+
+impl std::str::FromStr for UserRole {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "user" => Ok(UserRole::User),
+            "moderator" => Ok(UserRole::Moderator),
+            "admin" => Ok(UserRole::Admin),
+            _ => Err(()),
         }
     }
 }
@@ -140,10 +144,10 @@ mod tests {
 
     #[test]
     fn test_user_role_from_str() {
-        assert_eq!(UserRole::from_str("user"), Some(UserRole::User));
-        assert_eq!(UserRole::from_str("USER"), Some(UserRole::User));
-        assert_eq!(UserRole::from_str("admin"), Some(UserRole::Admin));
-        assert_eq!(UserRole::from_str("invalid"), None);
+        assert_eq!("user".parse::<UserRole>().ok(), Some(UserRole::User));
+        assert_eq!("USER".parse::<UserRole>().ok(), Some(UserRole::User));
+        assert_eq!("admin".parse::<UserRole>().ok(), Some(UserRole::Admin));
+        assert!("invalid".parse::<UserRole>().is_err());
     }
 
     #[test]

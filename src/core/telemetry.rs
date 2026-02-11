@@ -68,7 +68,7 @@ pub fn init_tracing(
 /// Shutdown telemetry and flush any pending data
 pub fn shutdown_telemetry() {
     // Try to shutdown OpenTelemetry if it was initialized
-    let _ = global::shutdown_tracer_provider();
+    global::shutdown_tracer_provider();
 }
 
 /// Prometheus metrics helper
@@ -168,7 +168,7 @@ pub fn export_metrics() -> String {
 }
 
 /// Request tracking middleware state
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RequestTracking {
     pub metrics: Metrics,
 }

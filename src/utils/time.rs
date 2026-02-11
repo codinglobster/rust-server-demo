@@ -21,14 +21,14 @@ pub fn now_millis() -> i64 {
 
 /// Convert Unix seconds to DateTime
 pub fn from_seconds(seconds: i64) -> DateTime<Utc> {
-    DateTime::from_timestamp(seconds, 0).unwrap_or_else(|| Utc::now())
+    DateTime::from_timestamp(seconds, 0).unwrap_or_else(Utc::now)
 }
 
 /// Convert Unix milliseconds to DateTime
 pub fn from_millis(millis: i64) -> DateTime<Utc> {
     let secs = millis / 1000;
     let nsecs = ((millis % 1000) * 1_000_000) as u32;
-    DateTime::from_timestamp(secs, nsecs).unwrap_or_else(|| Utc::now())
+    DateTime::from_timestamp(secs, nsecs).unwrap_or_else(Utc::now)
 }
 
 /// Format DateTime as ISO 8601 string

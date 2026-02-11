@@ -41,15 +41,19 @@ impl MessageType {
             MessageType::Notification => "notification",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for MessageType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "text" => Some(MessageType::Text),
-            "system" => Some(MessageType::System),
-            "private" => Some(MessageType::Private),
-            "room" => Some(MessageType::Room),
-            "notification" => Some(MessageType::Notification),
-            _ => None,
+            "text" => Ok(MessageType::Text),
+            "system" => Ok(MessageType::System),
+            "private" => Ok(MessageType::Private),
+            "room" => Ok(MessageType::Room),
+            "notification" => Ok(MessageType::Notification),
+            _ => Err(()),
         }
     }
 }

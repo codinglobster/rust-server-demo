@@ -30,6 +30,7 @@ pub struct Claims {
 
 impl Claims {
     /// Create new claims
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user_id: Uuid,
         username: String,

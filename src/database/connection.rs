@@ -29,7 +29,7 @@ impl Database {
         sqlx::query("SELECT 1")
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| AppError::Database(e))?;
+            .map_err(AppError::Database)?;
         Ok(())
     }
 
@@ -45,7 +45,7 @@ impl Database {
     /// Get connection pool statistics
     pub fn pool_stats(&self) -> PoolStats {
         PoolStats {
-            size: self.pool.size() as u32,
+            size: self.pool.size(),
             idle: self.pool.num_idle() as u32,
         }
     }
@@ -69,7 +69,7 @@ pub async fn create_pool(config: &DatabaseConfig) -> AppResult<PgPool> {
         .test_before_acquire(true)
         .connect(&config.url)
         .await
-        .map_err(|e| AppError::Database(e))?;
+        .map_err(AppError::Database)?;
 
     tracing::info!("Database connection pool created: max_connections={}", config.max_connections);
 

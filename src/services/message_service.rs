@@ -33,7 +33,7 @@ impl MessageService {
         let message_type = request
             .message_type
             .as_ref()
-            .and_then(|t| MessageType::from_str(t))
+            .and_then(|t| t.parse().ok())
             .unwrap_or(MessageType::Text);
 
         let message = sqlx::query_as::<_, MessageDto>(
