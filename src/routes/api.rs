@@ -3,6 +3,7 @@
 use crate::handlers::{auth, health, user};
 use crate::state::AppState;
 use axum::middleware;
+#[allow(unused_imports)]
 use axum::{
     routing::{get, post, put},
     Router,

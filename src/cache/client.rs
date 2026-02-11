@@ -191,8 +191,9 @@ impl RedisClient {
 
     /// Subscribe to channels
     /// Note: This creates a new connection for pubsub
+    #[allow(deprecated)]
     pub async fn subscribe(&self, channels: &[&str]) -> AppResult<()> {
-        let mut conn = self.client.get_async_connection().await
+        let conn = self.client.get_async_connection().await
             .map_err(|e| AppError::Redis(e.to_string()))?;
 
         let mut pubsub = conn.into_pubsub();

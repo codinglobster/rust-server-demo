@@ -59,7 +59,8 @@ impl Broadcaster {
             self.connections
                 .read()
                 .await
-                .send_to_room(room_id, &json);
+                .send_to_room(room_id, &json)
+                .await;
 
             // Publish to Redis for distribution
             let _ = self

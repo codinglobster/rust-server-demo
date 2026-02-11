@@ -1,6 +1,6 @@
 //! Validation utilities
 
-use crate::core::error::{AppError, ValidationError};
+use crate::core::error::ValidationError;
 use regex::Regex;
 use validator::Validate;
 

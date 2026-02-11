@@ -1,7 +1,6 @@
 //! Session service
 
 use crate::cache::client::RedisClient;
-use crate::cache::keys::CacheKeys;
 use crate::core::error::AppResult;
 use crate::database::repositories::session::SessionRepository;
 use crate::models::session::{SessionCreate, SessionDto};
@@ -12,6 +11,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct SessionService {
     repository: SessionRepository,
+    #[allow(dead_code)]
     redis: RedisClient,
 }
 

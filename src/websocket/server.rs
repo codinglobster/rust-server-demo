@@ -1,7 +1,6 @@
 //! WebSocket server
 
-use crate::websocket::{broadcast, connection, message};
-use crate::websocket::{ConnectionManager, Broadcaster, WsMessageHandler};
+use crate::websocket::{Broadcaster, ConnectionManager, WsMessageHandler};
 use crate::auth::jwt::JwtService;
 use crate::cache::RedisClient;
 use std::sync::Arc;

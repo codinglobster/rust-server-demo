@@ -2,7 +2,6 @@
 
 use crate::auth::jwt::JwtService;
 use crate::auth::claims::TokenUser;
-use crate::core::error::{AppError, AppResult};
 use axum::{
     extract::{Request, State},
     http::StatusCode,

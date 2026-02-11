@@ -19,12 +19,8 @@ use rust_server_demo::{
         base::ServerConfig,
         database::DatabaseConfig,
         jwt::JwtConfig,
-        redis::RedisConfig,
     },
-    core::{
-        error::AppError,
-        telemetry::{init_telemetry, shutdown_telemetry},
-    },
+    core::telemetry::{init_telemetry, shutdown_telemetry},
     database::Database,
     routes::{create_api_routes, create_ws_routes, AppState},
     services::{AuthService, UserService},
@@ -43,7 +39,7 @@ use tower_http::{
     sensitive_headers::SetSensitiveHeadersLayer,
     trace::TraceLayer,
 };
-use tracing::{error, info, info_span, Level};
+use tracing::{error, info, info_span};
 
 #[cfg(feature = "kafka")]
 use rust_server_demo::messaging::KafkaProducer;
@@ -457,6 +453,7 @@ async fn metrics_handler() -> Result<String, StatusCode> {
     Ok(rust_server_demo::core::telemetry::export_metrics())
 }
 
+#[allow(dead_code)]
 fn warn(s: &str) {
     tracing::warn!("{}", s);
 }

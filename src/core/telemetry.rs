@@ -48,9 +48,10 @@ pub fn init_telemetry(
 /// Initialize OpenTelemetry tracing with Jaeger
 pub fn init_tracing(
     service_name: &str,
-    environment: &str,
-    jaeger_endpoint: &str,
+    _environment: &str,
+    _jaeger_endpoint: &str,
 ) -> Result<(), TraceError> {
+    #[allow(deprecated)]
     let tracer = opentelemetry_jaeger::new_agent_pipeline()
         .with_service_name(service_name)
         .install_simple()?;
@@ -156,7 +157,7 @@ impl Default for Metrics {
     }
 }
 
-/// 全局 metrics 单例，只注册一次，避免 /metrics 每次请求重复注册导致 AlreadyReg
+// 全局 metrics 单例，只注册一次，避免 /metrics 每次请求重复注册导致 AlreadyReg
 lazy_static! {
     static ref METRICS: Metrics = Metrics::new().expect("Failed to initialize metrics");
 }

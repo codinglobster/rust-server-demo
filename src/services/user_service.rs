@@ -11,6 +11,7 @@ use uuid::Uuid;
 /// User service
 #[derive(Clone)]
 pub struct UserService {
+    #[allow(dead_code)]
     pool: PgPool,
     repository: UserRepository,
     redis: RedisClient,

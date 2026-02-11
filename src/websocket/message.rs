@@ -2,7 +2,6 @@
 
 use crate::auth::jwt::JwtService;
 use crate::cache::RedisClient;
-use crate::models::message::{WsMessage, MessageType};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -20,6 +19,7 @@ pub struct WsMessageHandler {
     jwt_service: JwtService,
     redis: RedisClient,
     connections: Arc<RwLock<crate::websocket::connection::ConnectionManager>>,
+    #[allow(dead_code)]
     broadcaster: Arc<crate::websocket::broadcast::Broadcaster>,
 }
 
