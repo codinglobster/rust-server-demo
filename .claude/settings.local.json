@@ -36,7 +36,8 @@
       "Bash(sqlx migrate:*)",
       "Bash(psqlx:*)",
       "Bash(sqlx db:*)",
-      "Bash(docker-compose exec:*)"
+      "Bash(docker-compose exec:*)",
+      "Bash(npx playwright test:*)"
     ]
   }
 }
