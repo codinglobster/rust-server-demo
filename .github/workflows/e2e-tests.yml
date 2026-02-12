@@ -1,0 +1,135 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rust_server
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rust_server
+        run: |
+          cargo install sqlx-cli --no-default-features --features rustls,postgres
+          sqlx database create
+          sqlx migrate run
+
+      - name: Build server
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rust_server
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key-at-least-32-characters-long-for-ci-testing
+          RUST_LOG: info
+        run: cargo build --release
+
+      - name: Start server in background
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rust_server
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key-at-least-32-characters-long-for-ci-testing
+          RUST_LOG: info
+          SERVER_HOST: 127.0.0.1
+          SERVER_PORT: 8080
+        run: |
+          ./target/release/server &
+          echo $! > server.pid
+          # Wait for server to be ready
+          timeout 30 bash -c 'until curl -s http://localhost:8080/health; do sleep 1; done'
+
+      - name: Run E2E tests
+        env:
+          BASE_URL: http://localhost:8080
+        run: npm test
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 30
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          retention-days: 30

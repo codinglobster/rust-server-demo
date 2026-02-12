@@ -90,6 +90,13 @@ pub struct ChangePasswordRequest {
     pub new_password: String,
 }
 
+/// Update user role request (admin only)
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct UpdateUserRoleRequest {
+    #[validate(length(min = 1))]
+    pub role: String,
+}
+
 /// User roles
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "lowercase")]

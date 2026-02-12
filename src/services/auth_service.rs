@@ -217,16 +217,26 @@ impl AuthService {
     }
 
     /// Change user password
-    pub async fn change_password(&self, _request: &crate::models::user::ChangePasswordRequest) -> AppResult<()> {
-        // Get current user by verifying old password
-        // This is a simplified version - in production you'd:
-        // 1. Get the user from the token/JWT claims
-        // 2. Verify the old password
-        // 3. Hash the new password
-        // 4. Update in database
+    pub async fn change_password(&self, user_id: Uuid, request: &crate::models::user::ChangePasswordRequest) -> AppResult<()> {
+        // Get user
+        let user = self.user_service.get_user(user_id).await?;
 
-        // For now, return success (placeholder implementation)
-        tracing::info!("Password change requested for user");
+        // Get full user with password hash
+        let user_with_hash = self.user_service.get_by_username(&user.username).await?;
+
+        // Verify old password
+        if !self.verify_password(&request.old_password, &user_with_hash.password_hash)? {
+            return Err(AppError::Auth(crate::core::error::AuthError::InvalidCredentials));
+        }
+
+        // Hash new password
+        let new_password_hash = self.hash_password(&request.new_password)?;
+
+        // Update in database
+        self.user_service.update_password(user_id, &new_password_hash).await?;
+
+        tracing::info!("Password changed successfully for user: {}", user_id);
+
         Ok(())
     }
 

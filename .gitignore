@@ -43,3 +43,11 @@ perf.data.old
 # Temporary files
 tmp/
 temp/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# node
+node_modules

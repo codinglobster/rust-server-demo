@@ -1,0 +1,33 @@
+{
+  "name": "rust-server-demo",
+  "version": "1.0.0",
+  "description": "A production-ready real-time/long-connection server built with Rust, featuring PostgreSQL for persistence, Redis for caching, and Kafka for message queuing.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "test:install": "playwright install chromium"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codinglobster/rust-server-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/codinglobster/rust-server-demo/issues"
+  },
+  "homepage": "https://github.com/codinglobster/rust-server-demo#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

@@ -141,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
         kafka: kafka_producer.clone(),
     };
 
-    // Build router (API 统一在 /api 下: /api/auth/*, /api/users/*, /api/health/*)
+    // Build router (API routes with /api prefix)
     let api_routes = create_api_routes(app_state.clone());
     let ws_routes = create_ws_routes(app_state.clone());
 

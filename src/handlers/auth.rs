@@ -1,12 +1,13 @@
 //! Authentication handlers
 
 use crate::auth::jwt::TokenPair;
+use crate::auth::middleware::AuthenticatedUser;
 use crate::models::user::{LoginRequest, RegisterRequest};
 use crate::models::session::{LoginResponse, RefreshTokenRequest};
 use crate::services::AuthService;
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
     Json as JsonExtractor,
 };
@@ -114,9 +115,38 @@ pub async fn refresh_token(
     security(("bearer_auth" = []))
 )]
 pub async fn logout(
-    State(_auth_service): State<AuthService>,
+    State(auth_service): State<AuthService>,
+    AuthenticatedUser(user): AuthenticatedUser,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    // In a real implementation, extract the token from the request
-    // For now, return success
-    Ok::<_, crate::core::error::AppError>(StatusCode::NO_CONTENT)
+    // Extract token from Authorization header
+    let auth_header = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Missing authorization header".to_string(),
+            }),
+        ))?;
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "Invalid authorization header format".to_string(),
+            }),
+        ))?;
+
+    // Logout user
+    match auth_service.logout(token, user.id).await {
+        Ok(_) => Ok::<_, (StatusCode, Json<ErrorResponse>)>(StatusCode::NO_CONTENT),
+        Err(e) => Err((
+            e.status_code(),
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )),
+    }
 }

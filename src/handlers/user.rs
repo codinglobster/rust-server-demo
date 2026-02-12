@@ -1,7 +1,7 @@
 //! User handlers
 
 use crate::auth::middleware::AuthenticatedUser;
-use crate::models::user::{UserDto, UpdateUserRequest, ChangePasswordRequest};
+use crate::models::user::{UserDto, UpdateUserRequest, ChangePasswordRequest, UpdateUserRoleRequest};
 use crate::services::UserService;
 use axum::{
     extract::{Path as AxumPath, Query, State},
@@ -140,10 +140,10 @@ pub async fn update_user(
 pub async fn change_password(
     State(_user_service): State<UserService>,
     State(auth_service): State<crate::services::AuthService>,
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     JsonExtractor(request): JsonExtractor<ChangePasswordRequest>,
 ) -> Result<impl IntoResponse, impl IntoResponse> {
-    auth_service.change_password(&request).await?;
+    auth_service.change_password(user.id, &request).await?;
 
     Ok::<_, crate::core::error::AppError>(StatusCode::NO_CONTENT)
 }
@@ -164,4 +164,37 @@ pub struct UsersListResponse {
     pub total: i64,
     pub page: u64,
     pub per_page: u64,
+}
+
+/// Update user role (admin only)
+#[utoipa::path(
+    put,
+    path = "/api/users/{id}/role",
+    params(
+        ("id" = Uuid, Path, description = "User ID")
+    ),
+    request_body = UpdateUserRoleRequest,
+    responses(
+        (status = 200, description = "User role updated", body = UserDto),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden - admin only"),
+        (status = 404, description = "User not found"),
+        (status = 400, description = "Invalid role")
+    ),
+    tag = "Users",
+    security(("bearer_auth" = []))
+)]
+pub async fn update_user_role(
+    State(user_service): State<UserService>,
+    AuthenticatedUser(_user): AuthenticatedUser,
+    AxumPath(id): AxumPath<Uuid>,
+    JsonExtractor(request): JsonExtractor<UpdateUserRoleRequest>,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    match user_service.update_role(id, &request.role).await {
+        Ok(user_dto) => Ok((StatusCode::OK, Json(user_dto))),
+        Err(e) => Err((
+            e.status_code(),
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )),
+    }
 }
