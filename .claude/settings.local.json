@@ -37,7 +37,14 @@
       "Bash(psqlx:*)",
       "Bash(sqlx db:*)",
       "Bash(docker-compose exec:*)",
-      "Bash(npx playwright test:*)"
+      "Bash(npx playwright test:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo tarpaulin:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo search:*)",
+      "Bash(python3:*)"
     ]
   }
 }

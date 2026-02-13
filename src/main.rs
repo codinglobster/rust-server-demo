@@ -22,7 +22,7 @@ use rust_server_demo::{
     },
     core::telemetry::{init_telemetry, shutdown_telemetry},
     database::Database,
-    routes::{create_api_routes, create_ws_routes, AppState},
+    routes::{api::ApiDoc, create_api_routes, create_ws_routes, AppState},
     services::{AuthService, UserService},
 };
 use std::{
@@ -39,6 +39,8 @@ use tower_http::{
     sensitive_headers::SetSensitiveHeadersLayer,
     trace::TraceLayer,
 };
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 use tracing::{error, info, info_span};
 
 #[cfg(feature = "kafka")]
@@ -151,6 +153,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(ws_routes)
         .route("/metrics", get(metrics_handler))
         .route("/health", get(health_check_handler))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(app_state)
         .layer(
             TraceLayer::new_for_http()

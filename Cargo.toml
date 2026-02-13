@@ -60,7 +60,7 @@ dotenvy = "0.15"
 
 # API Documentation
 utoipa = { version = "5.3", features = ["axum_extras", "chrono", "uuid"] }
-#utoipa-swagger-ui = { version = "8.1", features = ["axum"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
 
 # WebSocket
 tokio-tungstenite = "0.26"
