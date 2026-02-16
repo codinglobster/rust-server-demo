@@ -23,7 +23,7 @@ use rust_server_demo::{
     core::telemetry::{init_telemetry, shutdown_telemetry},
     database::Database,
     routes::{api::ApiDoc, create_api_routes, create_ws_routes, AppState},
-    services::{AuthService, UserService},
+    services::{AuthService, UserService, ActivityService},
 };
 use std::{
     net::SocketAddr,
@@ -44,7 +44,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use tracing::{error, info, info_span};
 
 #[cfg(feature = "kafka")]
-use rust_server_demo::messaging::KafkaProducer;
+use rust_server_demo::kafka::KafkaProducer;
 #[cfg(feature = "kafka")]
 use rust_server_demo::config::kafka::KafkaConfig;
 
@@ -131,10 +131,21 @@ async fn main() -> anyhow::Result<()> {
         redis.clone(),
     );
 
+    // Initialize activity service
+    let activity_service = ActivityService::new(db.pool().clone(), redis.clone());
+
+    #[cfg(feature = "kafka")]
+    let activity_service = if let Some(producer) = kafka_producer.clone() {
+        activity_service.with_kafka((*producer).clone())
+    } else {
+        activity_service
+    };
+
     // Create application state (single state for API and WebSocket)
     let app_state = AppState {
         auth_service: auth_service.clone(),
         user_service: user_service.clone(),
+        activity_service,
         db: db.clone(),
         redis: redis.clone(),
         jwt_service: Arc::clone(&jwt_service),

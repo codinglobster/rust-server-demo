@@ -1,6 +1,6 @@
 //! API routes
 
-use crate::handlers::{auth, health, user};
+use crate::handlers::{auth, health, user, activity};
 use crate::state::AppState;
 use axum::middleware;
 #[allow(unused_imports)]
@@ -25,6 +25,9 @@ use utoipa::OpenApi;
         user::update_user,
         user::change_password,
         user::update_user_role,
+        activity::list_activities,
+        activity::get_recent_activities,
+        activity::list_user_activities,
     ),
     components(
         schemas(
@@ -39,12 +42,16 @@ use utoipa::OpenApi;
             crate::auth::jwt::TokenPair,
             health::HealthResponse,
             user::UsersListResponse,
+            crate::models::activity::ActivityLogDto,
+            crate::models::activity::ActivityLogsResponse,
+            crate::models::activity::CreateActivityLogRequest,
         )
     ),
     tags(
         (name = "Health", description = "Health check endpoints"),
         (name = "Authentication", description = "User authentication"),
         (name = "Users", description = "User management"),
+        (name = "Activities", description = "Activity logs and event tracking"),
     ),
     info(
         title = "Rust Server Demo API",
@@ -105,10 +112,18 @@ pub fn create_api_routes(state: AppState) -> Router<AppState> {
     // Merge user and admin routes
     let all_user_routes = user_routes.merge(admin_routes);
 
+    // Activity routes (require authentication)
+    let activity_routes = activity::create_activity_router()
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::auth::middleware::auth_middleware,
+        ));
+
     Router::new()
         .nest("/health", health_routes)
         .nest("/auth", auth_routes)
         .nest("/users", all_user_routes)
+        .nest("/activities", activity_routes)
         .with_state(state)
 }
 

@@ -152,6 +152,41 @@ impl AppError {
             AppError::BadRequest(_)
         )
     }
+
+    /// Create a not found error
+    pub fn not_found(resource: impl Into<String>) -> Self {
+        AppError::NotFound(resource.into())
+    }
+
+    /// Create a forbidden error (403)
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        AppError::Auth(AuthError::InsufficientPermissions)
+    }
+
+    /// Create an internal server error
+    pub fn internal_error(message: impl Into<String>) -> Self {
+        AppError::Internal(message.into())
+    }
+
+    /// Create a bad request error
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        AppError::BadRequest(message.into())
+    }
+
+    /// Create an unauthorized error
+    pub fn unauthorized() -> Self {
+        AppError::Unauthorized
+    }
+
+    /// Create a conflict error
+    pub fn conflict(message: impl Into<String>) -> Self {
+        AppError::Conflict(message.into())
+    }
+
+    /// Create a validation error
+    pub fn validation(message: impl Into<String>) -> Self {
+        AppError::Validation(ValidationError::InvalidInput(message.into()))
+    }
 }
 
 /// Error response structure

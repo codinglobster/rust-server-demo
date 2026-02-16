@@ -14,7 +14,7 @@ pub mod core;
 pub mod database;
 pub mod state;
 #[cfg(feature = "kafka")]
-pub mod messaging;
+pub mod kafka;
 pub mod models;
 pub mod services;
 pub mod handlers;
