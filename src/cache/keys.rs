@@ -24,6 +24,9 @@ impl CacheKeys {
 
     /// Message cache prefix
     pub const MESSAGES: &'static str = "messages:";
+
+    /// Null value marker for cache penetration prevention
+    pub const NULL_VALUE: &'static str = "null";
 }
 
 /// Pub/Sub channels

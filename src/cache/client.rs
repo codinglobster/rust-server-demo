@@ -220,6 +220,70 @@ impl RedisClient {
         let info: String = redis::cmd("INFO").query_async(&mut conn).await?;
         Ok(info)
     }
+
+    /// Acquire a distributed lock using SET NX EX
+    /// Returns true if lock was acquired, false otherwise
+    pub async fn acquire_lock(
+        &self,
+        key: &str,
+        value: &str,
+        ttl_seconds: usize,
+    ) -> AppResult<bool> {
+        let mut conn = self.get_conn().await?;
+        let result: Option<String> = redis::cmd("SET")
+            .arg(key)
+            .arg(value)
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl_seconds)
+            .query_async(&mut conn)
+            .await?;
+        Ok(result.is_some())
+    }
+
+    /// Release a distributed lock using Lua script
+    /// Only releases the lock if the value matches (prevents releasing someone else's lock)
+    pub async fn release_lock(&self, key: &str, value: &str) -> AppResult<bool> {
+        let mut conn = self.get_conn().await?;
+        let script = r#"
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+        "#;
+        let result: i32 = redis::Script::new(script)
+            .key(key)
+            .arg(value)
+            .invoke_async(&mut conn)
+            .await?;
+        Ok(result > 0)
+    }
+
+    /// Try to acquire lock with timeout and retry
+    /// Retries every 50ms until timeout is reached
+    pub async fn try_lock_with_timeout(
+        &self,
+        key: &str,
+        value: &str,
+        ttl_seconds: usize,
+        timeout_ms: u64,
+    ) -> AppResult<bool> {
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_millis(timeout_ms);
+
+        loop {
+            if self.acquire_lock(key, value, ttl_seconds).await? {
+                return Ok(true);
+            }
+
+            if start.elapsed() >= timeout {
+                return Ok(false);
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
 }
 
 #[cfg(test)]

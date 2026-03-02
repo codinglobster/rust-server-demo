@@ -85,6 +85,7 @@ base64 = "0.22"
 regex = "1.11"
 lazy_static = "1.5"
 ammonia = "4.0"
+rand = "0.8"
 
 # Futures
 futures = "0.3"

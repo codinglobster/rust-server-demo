@@ -74,7 +74,8 @@
       "Bash(TOKEN=\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxNWY3NGU0YS1iYjc3LTQ3NjYtOTRlOC02Y2FiODJmNmVjOTIiLCJ1c2VybmFtZSI6InRlc3R1c2VyMyIsImVtYWlsIjoidGVzdDNAZXhhbXBsZS5jb20iLCJleHAiOjE3NzEwNDEyNzQsImlhdCI6MTc3MTAzNzY3NCwiaXNzIjoicnVzdC1zZXJ2ZXIiLCJhdWQiOiJydXN0LXNlcnZlci11c2VycyIsInJvbGVzIjpbInVzZXIiXSwianRpIjoiNjczOTZkOTgtOGNiMy00YWY3LWFlZmItMjQ0Y2E0NGExMmNhIn0.pNWpWtVoFo76KhV0sQ4Nuj0chF_KvdTu7eVoJR27I-s\")",
       "Bash(npm run test:e2e:*)",
       "Bash(perl:*)",
-      "Bash(ruby:*)"
+      "Bash(ruby:*)",
+      "Bash(cargo clippy:*)"
     ]
   }
 }

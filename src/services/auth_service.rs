@@ -15,6 +15,13 @@ use crate::messaging::producer::KafkaProducer;
 #[cfg(feature = "kafka")]
 use crate::messaging::topics::UserEvent;
 
+/// Generate TTL with random jitter to prevent cache avalanche
+fn generate_ttl_with_jitter(base_ttl: usize, jitter_range: usize) -> usize {
+    use rand::Rng;
+    let jitter = rand::thread_rng().gen_range(0..jitter_range);
+    base_ttl + jitter
+}
+
 /// Authentication service
 #[derive(Clone)]
 pub struct AuthService {
@@ -122,11 +129,12 @@ impl AuthService {
             roles,
         )?;
 
-        // Cache access token (for fast validation)
+        // Cache access token (for fast validation) with random TTL
         let cache_key = CacheKeys::session(&token_pair.access_token);
+        let ttl = generate_ttl_with_jitter(token_pair.access_expires_in as usize, 300);
         let _ = self
             .redis
-            .set(&cache_key, &user.id.to_string(), Some(token_pair.access_expires_in as usize))
+            .set(&cache_key, &user.id.to_string(), Some(ttl))
             .await;
 
         // Publish login event
@@ -167,10 +175,11 @@ impl AuthService {
             )));
         }
 
-        // Re-cache the token
+        // Re-cache the token with random TTL
+        let ttl = generate_ttl_with_jitter(3600, 300);
         let _ = self
             .redis
-            .set(&cache_key, &user_id.to_string(), Some(3600))
+            .set(&cache_key, &user_id.to_string(), Some(ttl))
             .await;
 
         Ok(user_id)
