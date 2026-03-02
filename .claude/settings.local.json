@@ -75,7 +75,9 @@
       "Bash(npm run test:e2e:*)",
       "Bash(perl:*)",
       "Bash(ruby:*)",
-      "Bash(cargo clippy:*)"
+      "Bash(cargo clippy:*)",
+      "Bash(git checkout:*)",
+      "Bash(migrations/20260302103910_create_rooms_and_room_members.sql:*)"
     ]
   }
 }

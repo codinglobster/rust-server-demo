@@ -22,3 +22,4 @@ pub mod routes;
 pub mod websocket;
 pub mod auth;
 pub mod utils;
+pub mod middleware;

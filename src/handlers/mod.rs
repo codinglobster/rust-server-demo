@@ -4,3 +4,6 @@ pub mod auth;
 pub mod user;
 pub mod ws;
 pub mod activity;
+pub mod session;
+pub mod message;
+pub mod room;

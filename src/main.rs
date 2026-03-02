@@ -22,8 +22,11 @@ use rust_server_demo::{
     },
     core::telemetry::{init_telemetry, shutdown_telemetry},
     database::Database,
+    database::repositories::session::SessionRepository,
+    database::repositories::room::RoomRepository,
+    middleware::rate_limit::RateLimitConfig,
     routes::{api::ApiDoc, create_api_routes, create_ws_routes, AppState},
-    services::{AuthService, UserService, ActivityService},
+    services::{AuthService, UserService, ActivityService, SessionService, MessageService, RoomService},
 };
 use std::{
     net::SocketAddr,
@@ -35,8 +38,10 @@ use tower_http::{
     catch_panic::CatchPanicLayer,
     compression::CompressionLayer,
     cors::CorsLayer,
+    limit::RequestBodyLimitLayer,
     propagate_header::PropagateHeaderLayer,
     sensitive_headers::SetSensitiveHeadersLayer,
+    timeout::TimeoutLayer,
     trace::TraceLayer,
 };
 use utoipa::OpenApi;
@@ -141,11 +146,25 @@ async fn main() -> anyhow::Result<()> {
         activity_service
     };
 
+    // Initialize session service
+    let session_repository = SessionRepository::new(db.pool().clone());
+    let session_service = SessionService::new(session_repository, redis.clone());
+
+    // Initialize message service
+    let message_service = MessageService::new(db.pool().clone(), redis.clone());
+
+    // Initialize room service
+    let room_repository = RoomRepository::new(db.pool().clone());
+    let room_service = RoomService::new(room_repository, redis.clone());
+
     // Create application state (single state for API and WebSocket)
     let app_state = AppState {
         auth_service: auth_service.clone(),
         user_service: user_service.clone(),
         activity_service,
+        session_service,
+        message_service,
+        room_service,
         db: db.clone(),
         redis: redis.clone(),
         jwt_service: Arc::clone(&jwt_service),
@@ -154,9 +173,29 @@ async fn main() -> anyhow::Result<()> {
         kafka: kafka_producer.clone(),
     };
 
+    // Warm up cache with hot data
+    let cache_warmup_count = std::env::var("CACHE_WARMUP_COUNT")
+        .unwrap_or_else(|_| "100".to_string())
+        .parse()
+        .unwrap_or(100);
+
+    if cache_warmup_count > 0 {
+        info!("Warming up cache with {} recent active users...", cache_warmup_count);
+        match user_service.warm_up_recent_active_users(cache_warmup_count).await {
+            Ok(count) => info!("Cache warmed up: {} users cached", count),
+            Err(e) => info!("Cache warmup skipped: {}", e),
+        }
+    }
+
     // Build router (API routes with /api prefix)
     let api_routes = create_api_routes(app_state.clone());
     let ws_routes = create_ws_routes(app_state.clone());
+
+    // Create rate limit config from server config
+    let rate_limit_config = RateLimitConfig {
+        max_requests: server_config.rate_limit_requests,
+        window_seconds: server_config.rate_limit_window,
+    };
 
     let app = Router::new()
         .route("/", get(root_handler))
@@ -165,7 +204,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/metrics", get(metrics_handler))
         .route("/health", get(health_check_handler))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .with_state(app_state)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(|request: &axum::http::Request<_>| {
@@ -185,6 +223,13 @@ async fn main() -> anyhow::Result<()> {
                 ),
         )
         .layer(CatchPanicLayer::new())
+        .layer(RequestBodyLimitLayer::new(
+            server_config.max_body_size * 1024 * 1024 // Convert MB to bytes
+        ))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(server_config.request_timeout),
+        ))
         .layer(CompressionLayer::new())
         .layer(SetSensitiveHeadersLayer::new(std::iter::once(AUTHORIZATION)))
         .layer(PropagateHeaderLayer::new(AUTHORIZATION))
@@ -201,7 +246,12 @@ async fn main() -> anyhow::Result<()> {
                 ])
                 .allow_headers([CONTENT_TYPE, AUTHORIZATION])
                 .allow_credentials(false),
-        );
+        )
+        .with_state(app_state);
+
+    info!("Rate limiting enabled: {} requests per {} seconds",
+          rate_limit_config.max_requests,
+          rate_limit_config.window_seconds);
 
     // Start server
     let addr = SocketAddr::from((
@@ -291,6 +341,14 @@ fn load_server_config() -> ServerConfig {
         log_level: std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
         environment: std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string()),
         jaeger_endpoint: std::env::var("JAEGER_ENDPOINT").ok(),
+        rate_limit_requests: std::env::var("RATE_LIMIT_REQUESTS")
+            .unwrap_or_else(|_| "100".to_string())
+            .parse()
+            .unwrap_or(100),
+        rate_limit_window: std::env::var("RATE_LIMIT_WINDOW")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .unwrap_or(60),
     }
 }
 

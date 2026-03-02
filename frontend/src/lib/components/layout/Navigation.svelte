@@ -12,10 +12,10 @@
 
 	const links: NavLink[] = [
 		{ label: '仪表盘', href: '/', icon: '📊' },
+		{ label: '聊天室', href: '/rooms', icon: '💬' },
 		{ label: '用户管理', href: '/users', icon: '👥' },
-		{ label: '角色权限', href: '/roles', icon: '⚙️' },
-		{ label: '系统设置', href: '/settings', icon: '⚙️' },
-		{ label: '帮助中心', href: '/help', icon: '❓' },
+		{ label: '活动日志', href: '/activities', icon: '📋' },
+		{ label: '会话管理', href: '/sessions', icon: '🔐' },
 	];
 </script>
 

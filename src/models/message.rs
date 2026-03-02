@@ -65,7 +65,7 @@ impl std::fmt::Display for MessageType {
 }
 
 /// Message create request
-#[derive(Debug, Clone, Serialize, Deserialize, validator::Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct CreateMessageRequest {
     pub content: String,
     pub message_type: Option<String>,
@@ -75,14 +75,14 @@ pub struct CreateMessageRequest {
 }
 
 /// Message update request
-#[derive(Debug, Clone, Serialize, Deserialize, validator::Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, validator::Validate, utoipa::ToSchema)]
 pub struct UpdateMessageRequest {
     #[validate(length(max = 5000))]
     pub content: String,
 }
 
 /// Message DTO for API responses
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct MessageDto {
     pub id: Uuid,
     pub sender_id: Uuid,
@@ -156,7 +156,7 @@ impl WsMessage {
 }
 
 /// Message list response with pagination
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct MessagesResponse {
     pub messages: Vec<MessageDto>,
     pub total: u64,

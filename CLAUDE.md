@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `./target/release/server` - Run release binary
 
 ### Testing
-- `cargo test` - Run all tests
+- `cargo test` - Run all tests (34 tests including Redis cache, rate limiting)
 - `cargo test --verbose` - Run tests with detailed output
 - `cargo tarpaulin --out Html` - Run tests with coverage (requires cargo-tarpaulin)
 
@@ -52,7 +52,7 @@ This is a layered service architecture built with Axum, following a strict separ
 ```
 HTTP/WebSocket Layer (Axum Router + Handlers)
          ↓
-Middleware Layer (Auth, CORS, Trace, CatchPanic)
+Middleware Layer (Auth, RateLimit, CORS, Timeout, Trace, CatchPanic)
          ↓
 Service Layer (Business Logic & Orchestration)
          ↓
@@ -61,7 +61,7 @@ Repository/Cache/Messaging (PostgreSQL, Redis, Kafka)
 
 ### Core Infrastructure
 
-- **Entry Point**: `src/main.rs` (~460 lines) - Initializes all services, builds router, handles graceful shutdown
+- **Entry Point**: `src/main.rs` (~300 lines) - Initializes all services, builds router, handles graceful shutdown, cache warmup
 - **Error Handling**: `src/core/error.rs` - `AppError` enum, `AppResult<T>` type alias, implements `IntoResponse` for automatic HTTP conversion
 - **Telemetry**: `src/core/telemetry.rs` - Structured logging with `tracing`, Prometheus metrics, OpenTelemetry/Jaeger integration
 - **State**: `src/state.rs` - `AppState` struct containing all services, implements `FromRef` for Axum sub-state extraction
@@ -69,7 +69,7 @@ Repository/Cache/Messaging (PostgreSQL, Redis, Kafka)
 ### Configuration Management
 
 All configuration is environment-variable based (no config files):
-- `src/config/base.rs` - ServerConfig (host, port, CORS, compression)
+- `src/config/base.rs` - ServerConfig (host, port, CORS, compression, rate limiting, timeouts)
 - `src/config/database.rs` - DatabaseConfig (pool sizes, timeouts, auto-migrate)
 - `src/config/jwt.rs` - JwtConfig (secret, expiration)
 - `src/config/redis.rs` - RedisConfig (reconnection, pool size)
@@ -83,15 +83,25 @@ Configuration is loaded in `main.rs` via `load_*_config()` functions using `std:
 - **Repositories**: `src/database/repositories/` - Data access using Repository pattern
   - `user.rs` - UserRepository (CRUD operations)
   - `session.rs` - SessionRepository (session management)
+  - `message.rs` - MessageRepository (message storage)
+  - `activity.rs` - ActivityRepository (activity logging)
 
 Pattern: Repository methods return `AppResult<Option<T>>` for optional results, `AppResult<T>` for required.
 
 ### Cache Layer
 
-- **Client**: `src/cache/client.rs` - Redis client wrapper with connection manager
-- **Keys**: `src/cache/keys.rs` - `CacheKeys` helpers for structured key generation (`CacheKeys::user(id)`, `CacheKeys::session(token)`)
+- **Client**: `src/cache/client.rs` - Redis client wrapper with connection manager and distributed locking
+- **Keys**: `src/cache/keys.rs` - `CacheKeys` helpers for structured key generation
+- **Distributed Lock**: Full implementation with `acquire_lock`, `release_lock`, `try_lock_with_timeout`
 
-Pattern: Cache-aside with Redis → DB fallback, cache invalidation on writes, TTL: 3600s.
+**Cache Improvements** (see `docs/REDIS_IMPROVEMENTS.md`):
+- ✅ **Cache Penetration Protection**: Null value caching with 5-minute TTL
+- ✅ **Cache Breakdown Protection**: Distributed locks prevent hot-key stampede
+- ✅ **Cache Avalanche Protection**: Random TTL jitter (base + 0-300s)
+- ✅ **Delayed Double Delete**: Prevents dirty reads in high concurrency
+- ✅ **Cache Warmup**: Preloads hot data on startup
+
+Pattern: Cache-aside with Redis → DB fallback, cache invalidation on writes with delayed double delete.
 
 ### Authentication
 
@@ -105,30 +115,43 @@ Pattern: Cache-aside with Redis → DB fallback, cache invalidation on writes, T
 
 Pattern: JWT validated in middleware, `TokenUser` injected into request extensions for handlers.
 
+### Middleware Layer
+
+- **Rate Limiting**: `src/middleware/rate_limit.rs` - Redis-based rate limiting
+  - Per-user or per-IP request tracking
+  - Configurable limits and time windows
+  - Returns `X-RateLimit-*` headers
+- **Authentication**: Token validation and role-based access control
+- **Request Limits**: Body size limit (configurable MB) and timeout (configurable seconds)
+- **Other**: CORS, compression, tracing, panic catching
+
 ### Models
 
 - **User**: `src/models/user.rs` - User, UserDto, RegisterRequest, LoginRequest, UpdateUserRequest, `UserRole` enum
 - **Session**: `src/models/session.rs` - Session, LoginResponse, RefreshTokenRequest
 - **Message**: `src/models/message.rs` - WebSocket message models
+- **Activity**: `src/models/activity.rs` - Activity log models and event types
 
 Pattern: Separate internal models (with `password_hash`) from DTOs (without sensitive data). Validation via `validator` crate, OpenAPI schemas via `utoipa::ToSchema`.
 
 ### Services
 
 Business logic layer orchestrating repositories and cache:
-- `src/services/user_service.rs` - Caching pattern, pagination, cache invalidation
+- `src/services/user_service.rs` - User management with caching, distributed locks, cache warmup
 - `src/services/auth_service.rs` - Password hashing/verification, login, session management, token validation
-- `src/services/session_service.rs` - Session CRUD
-- `src/services/message_service.rs` - Message handling with optional Kafka publishing
+- `src/services/session_service.rs` - Session CRUD (⚠️ not exposed via HTTP yet)
+- `src/services/message_service.rs` - Message handling with optional Kafka publishing (⚠️ not exposed via HTTP yet)
+- `src/services/activity_service.rs` - Activity logging and querying
 
-Pattern: Services are thin wrappers around repositories with caching and cross-cutting concerns.
+Pattern: Services are thin wrappers around repositories with caching, distributed locking, and cross-cutting concerns.
 
 ### Handlers
 
 HTTP request handlers organized by domain:
 - `src/handlers/auth.rs` - register, login, refresh_token, logout
-- `src/handlers/user.rs` - get_me, update_user, get_user, list_users, change_password
+- `src/handlers/user.rs` - get_me, update_user, get_user, list_users, change_password, update_user_role
 - `src/handlers/health.rs` - health_check, liveness, readiness, version
+- `src/handlers/activity.rs` - list_activities, get_recent_activities, list_user_activities
 - `src/handlers/ws.rs` - WebSocket connection handler
 
 Pattern: Handlers use `State<T>` extractor to get services, return `Result<T, impl IntoResponse>`.
@@ -146,7 +169,7 @@ Real-time communication using unbounded MPSC channels:
 - `src/websocket/broadcast.rs` - Broadcaster for message distribution
 - `src/websocket/message.rs` - Message handling logic
 
-Pattern: Redis-backed room membership for multi-server coordination.
+Pattern: Redis-backed room membership for multi-server coordination. ⚠️ Room broadcast logic is basic (echo mode).
 
 ## Key Patterns & Conventions
 
@@ -163,24 +186,33 @@ Pattern: Redis-backed room membership for multi-server coordination.
 - Transactions via `pool.begin().await?`
 
 ### Caching Strategy
-- Cache-aside pattern: Try cache → DB → update cache
-- Cache keys via `CacheKeys` helpers
-- TTL: 3600s (1 hour) for user data
-- Invalidation on writes
+- **Pattern**: Cache-aside with delayed double delete
+- **Read**: Try cache → check null marker → DB → update cache with random TTL
+- **Write**: Delete cache → update DB → async delayed delete (500ms)
+- **Protection**: Distributed locks prevent cache stampede
+- **TTL**: Base + random jitter (e.g., 3600 + 0-300 seconds)
+- **Warmup**: Preload hot data on startup (`CACHE_WARMUP_COUNT` env var)
+
+### Rate Limiting
+- **Implementation**: Redis-based sliding window
+- **Identifier**: User ID (authenticated) or IP address
+- **Configuration**: `RATE_LIMIT_REQUESTS` (default: 100), `RATE_LIMIT_WINDOW` (default: 60s)
+- **Headers**: Returns `X-RateLimit-Limit` and `X-RateLimit-Remaining`
 
 ### Authentication Flow
 1. User submits credentials to `/api/auth/login`
 2. AuthService verifies password with bcrypt
 3. JwtService generates TokenPair (access + refresh)
-4. Access token cached in Redis for quick validation
+4. Access token cached in Redis for quick validation (with random TTL)
 5. Client includes Bearer token in Authorization header
 6. Middleware validates token, injects TokenUser into extensions
 7. Handlers extract TokenUser via `AuthenticatedUser` extractor
 
 ### Testing Approach
 - Unit tests in module `#[cfg(test)]` blocks
+- 34 tests covering models, services, utilities, middleware
 - Focus on validation logic, error handling, model parsing
-- Test placeholders in repositories
+- Test placeholders in repositories (need integration tests)
 - GitHub Actions runs `cargo build` and `cargo test`
 
 ### Async Runtime
@@ -193,12 +225,16 @@ Pattern: Redis-backed room membership for multi-server coordination.
 - JWT signed with HS256 (secret from env)
 - SQL injection prevention via parameterized queries (SQLx)
 - CORS configuration in main.rs
+- Rate limiting prevents abuse
+- Request body size limits
+- Request timeouts
 
 ### Observability
 - Structured logging with `tracing::info!`, `debug!`, `error!`
 - Request tracing with span creation
 - Prometheus metrics: HTTP requests, WebSocket connections/messages
 - Optional Jaeger distributed tracing
+- Rate limit warnings logged
 
 ### Feature Flags
 - `kafka` feature (optional) - Conditionally compiled Kafka support
@@ -243,6 +279,11 @@ Pattern: Redis-backed room membership for multi-server coordination.
 - `GET /api/users/` - List users (pagination)
 - `PUT /api/users/:id/role` - Update role (admin only)
 
+### Activity Logs (authentication required)
+- `GET /api/activities` - List all activities (with pagination)
+- `GET /api/activities/recent` - Get recent activities
+- `GET /api/activities/user/:user_id` - Get activities for specific user
+
 ### WebSocket
 - `WS /ws` - WebSocket connection for real-time messages
 
@@ -251,9 +292,19 @@ Pattern: Redis-backed room membership for multi-server coordination.
 ### Key Environment Variables
 
 **Server:**
-- `SERVER_HOST`, `SERVER_PORT` - Bind address (default: 0.0.0.0:8080)
+- `SERVER_HOST` - Bind address (default: 0.0.0.0)
+- `SERVER_PORT` - Port (default: 8080)
 - `APP_ENV` - Environment (development/production)
 - `RUST_LOG` - Log level (info/debug/trace)
+- `SERVER_MAX_BODY_SIZE` - Max request body size in MB (default: 10)
+- `SERVER_REQUEST_TIMEOUT` - Request timeout in seconds (default: 30)
+
+**Rate Limiting:**
+- `RATE_LIMIT_REQUESTS` - Max requests per window (default: 100)
+- `RATE_LIMIT_WINDOW` - Time window in seconds (default: 60)
+
+**Cache:**
+- `CACHE_WARMUP_COUNT` - Number of users to preload on startup (default: 100, set to 0 to disable)
 
 **Database:**
 - `DATABASE_URL` - PostgreSQL connection string
@@ -277,12 +328,41 @@ Pattern: Redis-backed room membership for multi-server coordination.
 
 - JWT secret must be 32+ characters or server will fail to start
 - Database and Redis must be running before server starts
-- Migrations fail if database doesn't exist
+- Migrations run automatically if `DB_AUTO_MIGRATE=true`
 - Metrics global singleton must not be re-registered
-- Password change in AuthService is placeholder (services/auth_service.rs:220-231)
-- WebSocket room implementation uses Redis for multi-server coordination
-- No rate limiting implemented (mentioned in docs but not in code)
-- Session management is simplified
+- WebSocket room broadcast is basic (echo mode) - full room logic not yet implemented
+- Session and message services exist but no HTTP API endpoints yet
+- Room management system not yet implemented
+
+## Recent Improvements (2026-03-02)
+
+### Redis Cache Enhancements
+See `docs/REDIS_IMPROVEMENTS.md` for full details:
+- Implemented distributed locking to prevent cache breakdown
+- Added null value caching to prevent cache penetration
+- Implemented random TTL jitter to prevent cache avalanche
+- Added delayed double delete strategy for write operations
+- Implemented cache warmup on service startup
+
+### Middleware Additions
+- Rate limiting middleware with Redis backend
+- Request body size limiting
+- Request timeout middleware
+- All configurable via environment variables
+
+### Configuration Updates
+- Added `rate_limit_requests` and `rate_limit_window` to ServerConfig
+- Added `CACHE_WARMUP_COUNT` environment variable
+
+## Pending Features
+
+See `docs/TODO.md` for complete list. High-priority items:
+- ⚠️ WebSocket room broadcast logic (currently echo only)
+- ⚠️ Session management HTTP API (service exists, no endpoints)
+- ⚠️ Message HTTP API (service exists, no endpoints)
+- ⚠️ Room management system (not implemented)
+- ⚠️ Email verification flow
+- ⚠️ Repository integration tests
 
 ## Infrastructure Services
 

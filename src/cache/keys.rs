@@ -25,6 +25,9 @@ impl CacheKeys {
     /// Message cache prefix
     pub const MESSAGES: &'static str = "messages:";
 
+    /// Room cache prefix
+    pub const ROOM: &'static str = "room:";
+
     /// Null value marker for cache penetration prevention
     pub const NULL_VALUE: &'static str = "null";
 }
@@ -72,5 +75,10 @@ impl CacheKeys {
     /// Generate messages cache key for a room
     pub fn messages(room_id: &str) -> String {
         format!("{}{}", Self::MESSAGES, room_id)
+    }
+
+    /// Generate room cache key
+    pub fn room(room_id: uuid::Uuid) -> String {
+        format!("{}{}", Self::ROOM, room_id)
     }
 }

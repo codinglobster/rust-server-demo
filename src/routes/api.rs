@@ -1,6 +1,6 @@
 //! API routes
 
-use crate::handlers::{auth, health, user, activity};
+use crate::handlers::{auth, health, user, activity, session, message, room};
 use crate::state::AppState;
 use axum::middleware;
 #[allow(unused_imports)]
@@ -28,6 +28,29 @@ use utoipa::OpenApi;
         activity::list_activities,
         activity::get_recent_activities,
         activity::list_user_activities,
+        session::list_sessions,
+        session::get_session,
+        session::invalidate_session,
+        session::invalidate_other_sessions,
+        session::get_session_stats,
+        message::create_message,
+        message::get_message,
+        message::update_message,
+        message::delete_message,
+        message::list_messages,
+        message::get_recent_room_messages,
+        message::get_my_messages,
+        room::create_room,
+        room::get_room,
+        room::update_room,
+        room::delete_room,
+        room::list_rooms,
+        room::get_my_rooms,
+        room::join_room,
+        room::leave_room,
+        room::list_members,
+        room::update_member_role,
+        room::remove_member,
     ),
     components(
         schemas(
@@ -39,12 +62,27 @@ use utoipa::OpenApi;
             crate::models::user::UpdateUserRoleRequest,
             crate::models::session::LoginResponse,
             crate::models::session::RefreshTokenRequest,
+            crate::models::session::SessionDto,
+            crate::models::message::MessageDto,
+            crate::models::message::CreateMessageRequest,
+            crate::models::message::UpdateMessageRequest,
+            crate::models::message::MessagesResponse,
+            crate::models::room::RoomDto,
+            crate::models::room::CreateRoomRequest,
+            crate::models::room::UpdateRoomRequest,
+            crate::models::room::JoinRoomRequest,
+            crate::models::room::RoomMemberDto,
+            crate::models::room::UpdateMemberRoleRequest,
+            crate::models::room::RoomsListResponse,
+            crate::models::room::RoomMembersResponse,
             crate::auth::jwt::TokenPair,
             health::HealthResponse,
             user::UsersListResponse,
             crate::models::activity::ActivityLogDto,
             crate::models::activity::ActivityLogsResponse,
             crate::models::activity::CreateActivityLogRequest,
+            session::SessionsListResponse,
+            session::SessionInvalidateResponse,
         )
     ),
     tags(
@@ -52,6 +90,9 @@ use utoipa::OpenApi;
         (name = "Authentication", description = "User authentication"),
         (name = "Users", description = "User management"),
         (name = "Activities", description = "Activity logs and event tracking"),
+        (name = "Sessions", description = "Session management"),
+        (name = "Messages", description = "Message and chat functionality"),
+        (name = "Rooms", description = "Room management and membership"),
     ),
     info(
         title = "Rust Server Demo API",
@@ -119,11 +160,58 @@ pub fn create_api_routes(state: AppState) -> Router<AppState> {
             crate::auth::middleware::auth_middleware,
         ));
 
+    // Session routes (require authentication)
+    let session_routes = Router::new()
+        .route("/", get(session::list_sessions))
+        .route("/stats", get(session::get_session_stats))
+        .route("/other", axum::routing::delete(session::invalidate_other_sessions))
+        .route("/{id}", get(session::get_session))
+        .route("/{id}", axum::routing::delete(session::invalidate_session))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::auth::middleware::auth_middleware,
+        ));
+
+    // Message routes (require authentication)
+    let message_routes = Router::new()
+        .route("/", post(message::create_message))
+        .route("/", get(message::list_messages))
+        .route("/me", get(message::get_my_messages))
+        .route("/{id}", get(message::get_message))
+        .route("/{id}", put(message::update_message))
+        .route("/{id}", axum::routing::delete(message::delete_message))
+        .route("/room/{room_id}/recent", get(message::get_recent_room_messages))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::auth::middleware::auth_middleware,
+        ));
+
+    // Room routes (require authentication)
+    let room_routes = Router::new()
+        .route("/", post(room::create_room))
+        .route("/", get(room::list_rooms))
+        .route("/me", get(room::get_my_rooms))
+        .route("/{id}", get(room::get_room))
+        .route("/{id}", put(room::update_room))
+        .route("/{id}", axum::routing::delete(room::delete_room))
+        .route("/{id}/join", post(room::join_room))
+        .route("/{id}/leave", post(room::leave_room))
+        .route("/{id}/members", get(room::list_members))
+        .route("/{id}/members/{user_id}/role", put(room::update_member_role))
+        .route("/{id}/members/{user_id}", axum::routing::delete(room::remove_member))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            crate::auth::middleware::auth_middleware,
+        ));
+
     Router::new()
         .nest("/health", health_routes)
         .nest("/auth", auth_routes)
         .nest("/users", all_user_routes)
         .nest("/activities", activity_routes)
+        .nest("/sessions", session_routes)
+        .nest("/messages", message_routes)
+        .nest("/rooms", room_routes)
         .with_state(state)
 }
 

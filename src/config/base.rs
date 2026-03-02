@@ -26,6 +26,10 @@ pub struct ServerConfig {
     /// Jaeger endpoint for distributed tracing (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jaeger_endpoint: Option<String>,
+    /// Rate limit: max requests per window
+    pub rate_limit_requests: u32,
+    /// Rate limit: window size in seconds
+    pub rate_limit_window: i64,
 }
 
 impl Default for ServerConfig {
@@ -41,6 +45,8 @@ impl Default for ServerConfig {
             log_level: "info".to_string(),
             environment: "development".to_string(),
             jaeger_endpoint: None,
+            rate_limit_requests: 100,
+            rate_limit_window: 60,
         }
     }
 }
